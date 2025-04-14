@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { FileInfo } from '../types/api';
+import MarkdownViewer from './MarkdownViewer';
 
 interface FileManagerProps {
     onFileSelect?: (fileId: string) => void;
@@ -20,6 +21,7 @@ const FileViewer = ({ file, onClose }: FileViewerProps) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isImage, setIsImage] = useState(false);
+    const [isMarkdown, setIsMarkdown] = useState(false);
 
     useEffect(() => {
         if (!file) return;
@@ -27,6 +29,7 @@ const FileViewer = ({ file, onClose }: FileViewerProps) => {
         const fetchFileContent = async () => {
             setLoading(true);
             setError(null);
+            setIsMarkdown(false);
             
             try {
                 // Determine if it's an image
@@ -34,6 +37,13 @@ const FileViewer = ({ file, onClose }: FileViewerProps) => {
                     setIsImage(true);
                     setLoading(false);
                     return;
+                }
+                
+                // Check if it's a markdown file
+                if (file.content_type === 'text/markdown' || 
+                    file.name.endsWith('.md') || 
+                    file.name.endsWith('.markdown')) {
+                    setIsMarkdown(true);
                 }
                 
                 // For other content types, fetch as text
@@ -118,6 +128,8 @@ const FileViewer = ({ file, onClose }: FileViewerProps) => {
                             style={{ maxWidth: '100%', maxHeight: '600px', margin: '0 auto' }}
                         />
                     </div>
+                ) : isMarkdown && content ? (
+                    <MarkdownViewer content={content} />
                 ) : (
                     <div className="code-container border rounded">
                         <pre 

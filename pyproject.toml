@@ -1,0 +1,38 @@
+[project]
+name = "recipe-executor-ux"
+version = "0.1.0"
+description = "A sample service for supporting an experimental UX for executing natural language recipe-like instructions"
+authors = [{ name = "Brian Krabach" }]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn>=0.23.2",
+    "pydantic>=2.4.2",
+    "jinja2>=3.1.2",
+    "python-multipart>=0.0.6",
+    "python-dotenv>=1.0.0",
+    "python-magic>=0.4.27",
+]
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.389",
+    "pytest>=8.3.5",
+    "pytest-cov>=6.1.1",
+    "pytest-mock>=3.14.0",
+    "ruff>=0.11.2",
+]
+
+[tool.uv]
+package = true
+
+[project.scripts]
+ux-server = "app.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
