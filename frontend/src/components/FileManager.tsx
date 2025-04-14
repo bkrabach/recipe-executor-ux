@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { FileInfo } from '../types/api';
-import MarkdownViewer from './MarkdownViewer';
+import FileViewer from './FileViewer';
+import FilesGrid from './FilesGrid';
 
 interface FileManagerProps {
     onFileSelect?: (fileId: string) => void;
@@ -10,146 +11,6 @@ interface FileManagerProps {
     allowDelete?: boolean;
     title?: string;
 }
-
-interface FileViewerProps {
-    file: FileInfo | null;
-    onClose: () => void;
-}
-
-const FileViewer = ({ file, onClose }: FileViewerProps) => {
-    const [content, setContent] = useState<string | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [isImage, setIsImage] = useState(false);
-    const [isMarkdown, setIsMarkdown] = useState(false);
-
-    useEffect(() => {
-        if (!file) return;
-        
-        const fetchFileContent = async () => {
-            setLoading(true);
-            setError(null);
-            setIsMarkdown(false);
-            
-            try {
-                // Determine if it's an image
-                if (file.content_type.startsWith('image/')) {
-                    setIsImage(true);
-                    setLoading(false);
-                    return;
-                }
-                
-                // Check if it's a markdown file
-                if (file.content_type === 'text/markdown' || 
-                    file.name.endsWith('.md') || 
-                    file.name.endsWith('.markdown')) {
-                    setIsMarkdown(true);
-                }
-                
-                // For other content types, fetch as text
-                const response = await fetch(api.getFileDownloadUrl(file.id));
-                
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch file: ${response.statusText}`);
-                }
-                
-                // Check if we're dealing with a binary file
-                if (file.content_type === 'application/octet-stream' 
-                    || file.content_type === 'application/pdf'
-                    || file.content_type.includes('zip')
-                    || file.content_type.includes('executable')) {
-                    setError('Binary files cannot be displayed. Please download the file instead.');
-                    setLoading(false);
-                    return;
-                }
-                
-                const text = await response.text();
-                setContent(text);
-            } catch (err) {
-                setError(`Error loading file: ${err instanceof Error ? err.message : String(err)}`);
-            } finally {
-                setLoading(false);
-            }
-        };
-        
-        fetchFileContent();
-    }, [file]);
-    
-    if (!file) return null;
-    
-    return (
-        <div className="file-viewer card">
-            <div className="file-viewer-header p-4 border-b flex justify-between items-center">
-                <div>
-                    <h3 className="text-xl font-semibold">{file.name}</h3>
-                    <div className="text-sm text-gray-600 mt-1">{file.content_type}</div>
-                </div>
-                <div className="flex space-x-2">
-                    <a 
-                        href={api.getFileDownloadUrl(file.id)}
-                        className="btn btn-sm btn-outline"
-                        download={file.name}
-                    >
-                        Download
-                    </a>
-                    <button 
-                        className="btn btn-sm btn-outline" 
-                        onClick={onClose}
-                    >
-                        Close
-                    </button>
-                </div>
-            </div>
-            
-            <div className="file-viewer-content p-4">
-                {loading ? (
-                    <div className="flex items-center justify-center p-8">
-                        <div className="spinner mr-2"></div>
-                        <span>Loading file content...</span>
-                    </div>
-                ) : error ? (
-                    <div className="error-message p-4 border rounded bg-red-50 text-red-800">
-                        <p>{error}</p>
-                        <div className="mt-4">
-                            <a 
-                                href={api.getFileDownloadUrl(file.id)}
-                                className="btn btn-sm btn-primary"
-                                download={file.name}
-                            >
-                                Download Instead
-                            </a>
-                        </div>
-                    </div>
-                ) : isImage ? (
-                    <div className="image-preview text-center p-4">
-                        <img 
-                            src={api.getFileDownloadUrl(file.id)} 
-                            alt={file.name} 
-                            style={{ maxWidth: '100%', maxHeight: '600px', margin: '0 auto' }}
-                        />
-                    </div>
-                ) : isMarkdown && content ? (
-                    <MarkdownViewer content={content} />
-                ) : (
-                    <div className="code-container border rounded">
-                        <pre 
-                            className="code-preview p-4" 
-                            style={{
-                                whiteSpace: 'pre-wrap',
-                                backgroundColor: '#f8f8f8',
-                                borderRadius: '4px',
-                                maxHeight: '600px',
-                                overflow: 'auto'
-                            }}
-                        >
-                            {content}
-                        </pre>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
 
 const FileManager = ({
     onFileSelect,
@@ -252,110 +113,121 @@ const FileManager = ({
                     )}
                 </div>
 
-            {error && (
-                <div className="alert alert-error mb-4">
-                    {error}
-                    <button className="ml-2" onClick={() => setError(null)}>×</button>
-                </div>
-            )}
+                {error && (
+                    <div className="alert alert-error mb-4">
+                        {error}
+                        <button className="ml-2" onClick={() => setError(null)}>×</button>
+                    </div>
+                )}
 
-            {uploadOpen && (
-                <div className="upload-form mb-4 p-4 border rounded">
-                    <h3 className="mb-2">Upload File</h3>
-                    <form onSubmit={handleUploadSubmit}>
-                        <div className="mb-3">
-                            <label className="block mb-1">File:</label>
-                            <input
-                                type="file"
-                                onChange={handleFileChange}
-                                required
-                                disabled={uploading}
-                            />
-                        </div>
+                {uploadOpen && (
+                    <div className="upload-form mb-4 p-4 border rounded">
+                        <h3 className="mb-2">Upload File</h3>
+                        <form onSubmit={handleUploadSubmit}>
+                            <div className="mb-3">
+                                <label className="block mb-1">File:</label>
+                                <input
+                                    type="file"
+                                    onChange={handleFileChange}
+                                    required
+                                    disabled={uploading}
+                                />
+                            </div>
 
-                        <button
-                            type="submit"
-                            className="btn btn-primary"
-                            disabled={!selectedFile || uploading}
-                        >
-                            {uploading ? 'Uploading...' : 'Upload'}
-                        </button>
-                    </form>
-                </div>
-            )}
+                            <button
+                                type="submit"
+                                className="btn btn-primary"
+                                disabled={!selectedFile || uploading}
+                            >
+                                {uploading ? 'Uploading...' : 'Upload'}
+                            </button>
+                        </form>
+                    </div>
+                )}
 
-            {loading ? (
-                <div className="flex items-center justify-center py-8">
-                    <div className="spinner"></div>
-                    <span className="ml-2">Loading files...</span>
-                </div>
-            ) : files.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                    No files available. {allowUpload && 'Click "Upload File" to add one.'}
-                </div>
-            ) : (
-                <div className="files-list">
-                    <table className="w-full">
-                        <thead>
-                            <tr>
-                                {onFileSelect && <th style={{ width: "40px" }}></th>}
-                                <th className="text-left">Name</th>
-                                <th className="text-left">Type</th>
-                                <th className="text-right">Size</th>
-                                <th className="text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {files.map(file => (
-                                <tr
-                                    key={file.id}
-                                    className={`hover:bg-gray-100 ${selectedFileId === file.id ? 'bg-blue-50' : ''}`}
-                                >
-                                    {onFileSelect && (
-                                        <td>
-                                            <input
-                                                type="radio"
-                                                name="selectedFile"
-                                                checked={selectedFileId === file.id}
-                                                onChange={() => onFileSelect(file.id)}
-                                            />
-                                        </td>
-                                    )}
-                                    <td className="py-2">{file.name}</td>
-                                    <td>{file.content_type}</td>
-                                    <td className="text-right">{formatSize(file.size)}</td>
-                                    <td className="text-right space-x-2">
-                                        <button
-                                            onClick={() => setViewingFile(file)}
-                                            className="btn btn-sm btn-outline"
-                                            title="View file content"
-                                        >
-                                            View
-                                        </button>
-                                        <a
-                                            href={api.getFileDownloadUrl(file.id)}
-                                            download={file.name}
-                                            className="btn btn-sm btn-outline"
-                                            title="Download file"
-                                        >
-                                            Download
-                                        </a>
-                                        {allowDelete && (
-                                            <button
-                                                onClick={() => handleDeleteFile(file.id)}
-                                                className="btn btn-sm btn-outline-danger"
-                                                title="Delete file"
+                {loading ? (
+                    <div className="flex items-center justify-center py-8">
+                        <div className="spinner"></div>
+                        <span className="ml-2">Loading files...</span>
+                    </div>
+                ) : (
+                    onFileSelect ? (
+                        // Use selection view with radio buttons when selecting files for recipes
+                        files.length === 0 ? (
+                            <div className="text-center py-8 text-gray-500">
+                                No files available. {allowUpload && 'Click "Upload File" to add one.'}
+                            </div>
+                        ) : (
+                            <div className="files-list">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr>
+                                            <th style={{ width: "40px" }}></th>
+                                            <th className="text-left">Name</th>
+                                            <th className="text-left">Type</th>
+                                            <th className="text-right">Size</th>
+                                            <th className="text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {files.map(file => (
+                                            <tr
+                                                key={file.id}
+                                                className={`hover:bg-gray-100 ${selectedFileId === file.id ? 'bg-blue-50' : ''}`}
                                             >
-                                                Delete
-                                            </button>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+                                                <td>
+                                                    <input
+                                                        type="radio"
+                                                        name="selectedFile"
+                                                        checked={selectedFileId === file.id}
+                                                        onChange={() => onFileSelect(file.id)}
+                                                    />
+                                                </td>
+                                                <td className="py-2">{file.name}</td>
+                                                <td>{file.content_type}</td>
+                                                <td className="text-right">{formatSize(file.size)}</td>
+                                                <td className="text-right space-x-2">
+                                                    <button
+                                                        onClick={() => setViewingFile(file)}
+                                                        className="btn btn-sm btn-outline"
+                                                        title="View file content"
+                                                    >
+                                                        View
+                                                    </button>
+                                                    <a
+                                                        href={api.getFileDownloadUrl(file.id)}
+                                                        download={file.name}
+                                                        className="btn btn-sm btn-outline"
+                                                        title="Download file"
+                                                    >
+                                                        Download
+                                                    </a>
+                                                    {allowDelete && (
+                                                        <button
+                                                            onClick={() => handleDeleteFile(file.id)}
+                                                            className="btn btn-sm btn-outline-danger"
+                                                            title="Delete file"
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )
+                    ) : (
+                        // Use standard file list for browsing files
+                        <FilesGrid 
+                            files={files}
+                            emptyMessage={`No files available. ${allowUpload ? 'Click "Upload File" to add one.' : ''}`}
+                            onDeleteFile={allowDelete ? handleDeleteFile : undefined}
+                            allowDelete={allowDelete}
+                        />
+                    )
+                )}
                 </>
             )}
         </div>

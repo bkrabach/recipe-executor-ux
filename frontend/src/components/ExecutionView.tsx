@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../services/api';
-import { ExecutionStatus } from '../types/api';
+import { ExecutionStatus, FileInfo } from '../types/api';
+import FilesGrid from './FilesGrid';
 
 const ExecutionView = () => {
     const { id } = useParams<{ id: string }>();
@@ -212,6 +213,8 @@ const ExecutionView = () => {
                 </div>
             </div>
 
+            {execution.status === 'completed' && <ExecutionFiles logs={execution.logs} />}
+
             {execution.context && Object.keys(execution.context).length > 0 && (
                 <div className="card mt-4">
                     <h3 className="mb-2">Execution Context</h3>
@@ -229,6 +232,130 @@ const ExecutionView = () => {
                     </pre>
                 </div>
             )}
+        </div>
+    );
+};
+
+interface ExecutionFilesProps {
+    logs: string[];
+}
+
+const ExecutionFiles = ({ logs }: ExecutionFilesProps) => {
+    const [files, setFiles] = useState<FileInfo[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [fetchComplete, setFetchComplete] = useState(false);
+    
+    useEffect(() => {
+        // Only fetch files once
+        if (fetchComplete) return;
+        
+        const fetchExecutionFiles = async () => {
+            setLoading(true);
+            
+            // Extract file paths from logs
+            // Match multiple patterns that might indicate file creation
+            const filePathRegexes = [
+                /Added file reference to context: ([^\s]+)/g,
+                /Created file: ([^\s]+)/g,
+                /Generated file: ([^\s]+)/g,
+                /Writing file to ([^\s]+)/g,
+                /Saved output to ([^\s]+)/g
+            ];
+            
+            const filePaths: string[] = [];
+            
+            logs.forEach(log => {
+                // Check all regex patterns
+                filePathRegexes.forEach(regex => {
+                    let match;
+                    while ((match = regex.exec(log)) !== null) {
+                        if (match[1]) {
+                            filePaths.push(match[1]);
+                            console.log('Found file path in logs:', match[1]);
+                        }
+                    }
+                });
+            });
+            
+            if (filePaths.length === 0) {
+                setLoading(false);
+                return;
+            }
+            
+            // Get all files
+            const response = await api.getFiles();
+            
+            if (response.error || !response.data) {
+                setLoading(false);
+                return;
+            }
+            
+            // Process filenames from paths
+            const filenamesToMatch = filePaths.map(path => {
+                // Extract the filename from the path
+                const filename = path.split('/').pop() || '';
+                // Remove any extension for more flexible matching
+                return filename.replace(/\.[^/.]+$/, "");
+            }).filter(name => name.length > 0);
+            
+            console.log('Filenames to match:', filenamesToMatch);
+            
+            // Filter files that might match the extracted filenames
+            const matchingFiles = response.data.files.filter(file => {
+                // Remove extension from file.name too for more flexible matching
+                const fileBaseName = file.name.replace(/\.[^/.]+$/, "");
+                
+                return filenamesToMatch.some(name => {
+                    // Very flexible matching strategy
+                    return (
+                        fileBaseName === name || 
+                        fileBaseName.includes(name) || 
+                        name.includes(fileBaseName) ||
+                        file.id.includes(name) ||
+                        name.includes(file.id)
+                    );
+                });
+            });
+            
+            console.log('Found matching files:', matchingFiles.length, matchingFiles.map(f => f.name));
+            // If no matching files, just show all files as fallback
+            if (matchingFiles.length === 0 && response.data.files.length > 0) {
+                console.log('No matches found, showing all files');
+                setFiles(response.data.files);
+            } else {
+                setFiles(matchingFiles);
+            }
+            
+            setLoading(false);
+            setFetchComplete(true);
+        };
+        
+        fetchExecutionFiles();
+    }, [logs, fetchComplete]);
+    
+    if (loading) {
+        return (
+            <div className="card mt-4">
+                <h3 className="mb-2">Generated Files</h3>
+                <div className="flex items-center justify-center py-4">
+                    <div className="spinner"></div>
+                    <span className="ml-2">Loading generated files...</span>
+                </div>
+            </div>
+        );
+    }
+    
+    if (files.length === 0) {
+        return null;
+    }
+    
+    return (
+        <div className="card mt-4">
+            <h3 className="mb-2">Generated Files</h3>
+            <FilesGrid 
+                files={files} 
+                emptyMessage="No files were generated during this execution." 
+            />
         </div>
     );
 };
