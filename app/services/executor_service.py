@@ -302,10 +302,11 @@ class ExecutorService:
                     logger.error(f"Error saving content from {key}: {str(e)}")
 
     def _register_written_files(self, execution_id, context, logger):
-        """Register files that were written to the files directory"""
+        """Update context with references to files that were written by the recipe"""
+        # We no longer need to register written files - they are already written by the write_files step
+        # This method can be simplified to just find files mentioned in logs and add their info to context
         try:
             # Extract log messages about written files
-            written_files = []
             status = self.executions.get(execution_id)
             if not status:
                 logger.error(f"Execution status not found for ID: {execution_id}")
@@ -313,7 +314,6 @@ class ExecutorService:
 
             for log in status.logs:
                 if "Successfully wrote file:" in log:
-                    # Parse the file path from the log message
                     try:
                         # Expected format: "Successfully wrote file: PATH (size: SIZE bytes)"
                         file_path = (
@@ -322,90 +322,44 @@ class ExecutorService:
                             .strip()
                         )
 
-                        # Check if this file is in the files directory
-                        if file_path.startswith("./files/") or file_path.startswith(
-                            "files/"
-                        ):
-                            # Convert to consistent path format
-                            if file_path.startswith("./"):
-                                file_path = file_path[2:]  # Remove './'
-                            if not os.path.isabs(file_path):
-                                # Make relative path absolute based on working directory
-                                file_path = os.path.abspath(file_path)
-                            written_files.append(file_path)
-                    except Exception as e:
-                        logger.error(
-                            f"Error parsing file path from log: {log} - {str(e)}"
-                        )
+                        # Only process files in the files directory
+                        if not (file_path.startswith("./files/") or file_path.startswith("files/")):
+                            continue
 
-            # Register each file that we found in the logs
-            for file_path in written_files:
-                try:
-                    # Get just the filename from the path
-                    filename = os.path.basename(file_path)
-
-                    # Skip if file doesn't exist
-                    if not os.path.exists(file_path):
-                        logger.error(f"File doesn't exist: {file_path}")
-                        continue
-
-                    # Determine content type based on file extension
-                    _, ext = os.path.splitext(filename)
-                    content_type = "text/plain"  # Default
-                    if ext.lower() in [".json"]:
-                        content_type = "application/json"
-                    elif ext.lower() in [".md"]:
-                        content_type = "text/markdown"
-                    elif ext.lower() in [".html", ".htm"]:
-                        content_type = "text/html"
-                    elif ext.lower() in [".py"]:
-                        content_type = "text/x-python"
-                    elif ext.lower() in [".js"]:
-                        content_type = "application/javascript"
-
-                    # Read the file content
-                    with open(file_path, "rb") as f:
-                        content = f.read()
-
-                    # Register the file with the file service
-                    file_info = self.file_service.save_generated_file(
-                        filename=filename,
-                        content=content,
-                        content_type=content_type,
-                    )
-
-                    logger.info(
-                        f"Registered written file: {file_path} as {file_info.name} ({file_info.id})"
-                    )
-
-                    # Try to determine artifact key from filename
-                    base_name = os.path.splitext(filename)[0]
-
-                    # Update context with file info
-                    try:
-                        # Handle different context structures
+                        # Make the path consistent
+                        if file_path.startswith("./"):
+                            file_path = file_path[2:]  # Remove './'
+                        if not os.path.isabs(file_path):
+                            file_path = os.path.abspath(file_path)
+                        
+                        # Skip if file doesn't exist
+                        if not os.path.exists(file_path):
+                            logger.error(f"File doesn't exist: {file_path}")
+                            continue
+                            
+                        # Get just the filename from the path and determine base name
+                        filename = os.path.basename(file_path)
+                        base_name = os.path.splitext(filename)[0]
+                        
+                        # Update context with file references
                         file_id_key = f"{base_name}_file_id"
                         file_name_key = f"{base_name}_file_name"
-
-                        # Direct dictionary-style access for Context class
+                        
+                        # Add to context - using the filename as the ID (simplest approach)
                         if hasattr(context, "__setitem__"):
-                            context[file_id_key] = file_info.id
-                            context[file_name_key] = file_info.name
-                        # If context is a dict, update it directly
+                            context[file_id_key] = filename
+                            context[file_name_key] = filename
                         elif isinstance(context, dict):
-                            context[file_id_key] = file_info.id
-                            context[file_name_key] = file_info.name
+                            context[file_id_key] = filename
+                            context[file_name_key] = filename
+                            
+                        logger.info(f"Added file reference to context: {file_path}")
+                        
                     except Exception as e:
-                        logger.error(
-                            f"Error updating context with file references: {str(e)}"
-                        )
-
-                except Exception as e:
-                    logger.error(
-                        f"Error registering written file {file_path}: {str(e)}"
-                    )
+                        logger.error(f"Error processing written file from log: {log} - {str(e)}")
+                        
         except Exception as e:
-            logger.error(f"Error registering written files: {str(e)}")
+            logger.error(f"Error updating context with written files: {str(e)}")
 
 
 class LogCaptureHandler(logging.Handler):

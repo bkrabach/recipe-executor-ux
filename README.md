@@ -70,7 +70,7 @@ The frontend will be available at http://localhost:5173 by default.
 uvicorn app.main:app
 ```
 
-The service will be available at http://localhost:8000
+The service will be available at http://localhost:8800
 
 ## Development
 

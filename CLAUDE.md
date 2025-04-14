@@ -3,14 +3,16 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Build/Test/Lint Commands
+
 - Install dependencies: `pip install -r requirements.txt` (requires ../recipe-executor to exist)
-- Run backend server: `uvicorn app.main:app --reload --port 8000`
+- Run backend server: `uvicorn app.main:app --reload --port 8800`
 - Frontend development: `cd frontend && pnpm run dev` (must run backend first)
 - Build frontend: `cd frontend && pnpm run build`
 - TypeScript checks: `cd frontend && pnpm run tsc`
 - ESLint checks: `cd frontend && npx eslint src`
 
 ## Code Style Guidelines
+
 - Use Python type hints consistently including for optional parameters
 - Import statements at top of files, organized by standard lib, third-party, local
 - Use descriptive variable/function names (e.g., `get_recipe` not `gr`)

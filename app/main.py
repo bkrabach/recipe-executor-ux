@@ -1,18 +1,18 @@
 import logging
-import os
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import uvicorn
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+
 from app.models.file import FileInfo, FileList
 from app.models.recipe import Recipe, RecipeCreate, RecipeList
 from app.services.executor_service import ExecutorService
 from app.services.file_service import FileService
 from app.services.recipe_service import RecipeService
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -129,7 +129,11 @@ async def execute_recipe(recipe_id: str, context: Optional[Dict[str, str]] = Non
 
         context_dict = context or {}
         execution_id = executor_service.execute_recipe(recipe, context_dict)
-        return {"status": "success", "execution_id": execution_id, "message": f"Recipe {recipe_id} execution started"}
+        return {
+            "status": "success",
+            "execution_id": execution_id,
+            "message": f"Recipe {recipe_id} execution started",
+        }
     except HTTPException:
         raise
     except Exception as e:
@@ -153,6 +157,7 @@ async def get_execution_status(execution_id: str):
 
 
 # File Management Endpoints
+
 
 @app.get("/api/files", response_model=FileList)
 async def list_files():
@@ -193,9 +198,7 @@ async def download_file(file_id: str):
             raise HTTPException(status_code=404, detail="File content not found")
 
         return FileResponse(
-            path=file_path,
-            media_type=file_info.content_type,
-            filename=file_info.name
+            path=file_path, media_type=file_info.content_type, filename=file_info.name
         )
     except HTTPException:
         raise
@@ -231,4 +234,4 @@ async def delete_file(file_id: str):
 
 
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8800, reload=True)
