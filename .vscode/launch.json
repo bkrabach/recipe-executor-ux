@@ -1,0 +1,30 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "command": "npm run dev",
+      "name": "recipe-executor-ux (app)",
+      "request": "launch",
+      "type": "node-terminal",
+      "cwd": "${workspaceFolder}/frontend"
+    },
+    {
+      "type": "debugpy",
+      "request": "launch",
+      "name": "recipe-executor-ux (server)",
+      "cwd": "${workspaceFolder}",
+      "module": "uvicorn",
+      "args": ["app.main:app", "--port=8800"],
+      "consoleTitle": "recipe-executor-ux (server)"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "recipe-executor-ux (app + server)",
+      "configurations": [
+        "recipe-executor-ux (server)",
+        "recipe-executor-ux (app)"
+      ]
+    }
+  ]
+}
